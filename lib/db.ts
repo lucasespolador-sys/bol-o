@@ -1,11 +1,25 @@
 import { Pool } from 'pg';
 
 export function dbUrl(): string {
-  const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL;
+  let url = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL;
   if (!url) {
     throw new Error(
-      'Banco de dados não configurado. Na Vercel: Storage → Create Database → Neon (Postgres) → Connect Project.',
+      'Banco de dados não configurado: defina a variável POSTGRES_URL na Vercel com a connection string do seu Postgres (Supabase ou Neon).',
     );
+  }
+  url = url.trim().replace(/^["']|["']$/g, '');
+  if (url.includes('[YOUR-PASSWORD]') || url.includes('[SUA-SENHA]')) {
+    throw new Error(
+      'POSTGRES_URL ainda contém [YOUR-PASSWORD]: troque esse trecho (com os colchetes) pela senha real do banco no painel da Vercel e faça Redeploy.',
+    );
+  }
+  if (/^https?:\/\//.test(url)) {
+    throw new Error(
+      'POSTGRES_URL está com o endereço do site (https://...). Use a connection string que começa com postgresql:// — no Supabase: botão Connect → Connection String.',
+    );
+  }
+  if (!/^postgres(ql)?:\/\//.test(url)) {
+    throw new Error('POSTGRES_URL inválida: ela deve começar com postgresql://');
   }
   return url;
 }
