@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import Nav from '@/components/Nav';
+import BolaoProvider from '@/components/BolaoProvider';
 
 export const metadata: Metadata = {
   title: 'Bolão da Copa 2026',
@@ -11,19 +11,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0b3d2e',
+  themeColor: '#06110b',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
       <body>
-        <Nav />
-        <main className="container">{children}</main>
-        <footer className="footer">
-          Bolão da Família · Copa do Mundo 2026 · dados via{' '}
-          <a href="https://worldcup26.ir" target="_blank" rel="noreferrer">World Cup 2026 API</a>
-        </footer>
+        <BolaoProvider>{children}</BolaoProvider>
       </body>
     </html>
   );

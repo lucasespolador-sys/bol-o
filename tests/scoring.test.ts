@@ -218,14 +218,21 @@ const R16: [Slot, string, string][] = [
   const withLive = r.matchPoints;
   assert.equal(withLive, noLive + 20, 'ajuste substitui, não duplica');
 
-  // Ajuste errado por cima de quadro certo: vale o ajuste
+  // Quem previu o confronto no quadro MANTÉM o palpite do quadro:
+  // um ajuste jogo a jogo é ignorado nesse caso
   const picksCertos: Picks = {
     R16_1: { home_score: 0, away_score: 1, winner: null }, // França
     R16_2: { home_score: 0, away_score: 1, winner: null }, // Marrocos
-    QF_1: { home_score: 2, away_score: 0, winner: null },  // cravaria
+    QF_1: { home_score: 2, away_score: 0, winner: null },  // cravou
   };
   const r2 = scoreParticipant(picksCertos, matches, cfg, { QF_1: { home_score: 0, away_score: 1, winner: null } });
-  assert.equal(r2.slots.QF_1.points, 0, 'ajuste substitui o quadro mesmo quando piora');
+  assert.equal(r2.slots.QF_1.points, 20, 'quadro que previu o confronto é mantido (ajuste ignorado)');
+  assert.equal(r2.slots.QF_1.source, 'quadro');
+
+  // Ajuste em jogo das oitavas é sempre ignorado (oitavas valem pelo quadro)
+  const r3 = scoreParticipant(picksCertos, matches, cfg, { R16_1: { home_score: 0, away_score: 1, winner: null } });
+  assert.equal(r3.slots.R16_1.kind, 'exact');
+  assert.equal(r3.slots.R16_1.source, 'quadro', 'oitavas nunca usam ajuste jogo a jogo');
 }
 
 // ---------------------------------------------------------------------------

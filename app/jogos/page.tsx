@@ -1,6 +1,6 @@
 'use client';
 
-import { useBolao } from '@/components/useBolao';
+import { useBolaoCtx } from '@/components/BolaoProvider';
 import TeamLabel from '@/components/TeamLabel';
 import { teamNamePt } from '@/lib/teamNames';
 import { PHASE_LABEL, Phase, phaseOf, Slot, SLOTS } from '@/lib/types';
@@ -23,7 +23,7 @@ const KIND_ICON: Record<string, string> = {
 };
 
 export default function JogosPage() {
-  const { state, error, loading } = useBolao();
+  const { state, error, loading } = useBolaoCtx();
 
   if (loading) return <p className="subtitle">Carregando…</p>;
   if (error) return <div className="msg err">{error}</div>;

@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { api, clearSession, getToken, saveSession } from '@/components/api';
-import { useBolao } from '@/components/useBolao';
+import { useBolaoCtx } from '@/components/BolaoProvider';
 import TeamLabel from '@/components/TeamLabel';
-import { derivePredictedTeams } from '@/lib/scoring';
+import { derivePredictedTeams, quadroPredictedMatchup } from '@/lib/scoring';
 import { teamNamePt } from '@/lib/teamNames';
 import { FEEDERS, PHASE_LABEL, Phase, phaseOf, Pick, Picks, Slot, SLOTS } from '@/lib/types';
 
@@ -71,7 +71,7 @@ function LoginBox({ onLogin }: { onLogin: () => void }) {
 }
 
 export default function PalpitesPage() {
-  const { state, error, loading, refresh } = useBolao();
+  const { state, error, loading, refresh } = useBolaoCtx();
   const [logged, setLogged] = useState(false);
   const [tab, setTab] = useState<'jogo' | 'quadro' | null>(null);
 
@@ -152,6 +152,14 @@ function LiveEditor({ state, refresh }: { state: any; refresh: () => void }) {
       && !!m.kickoff && new Date(m.kickoff).getTime() > Date.now();
   };
 
+  // Quadro previu este confronto (com placar)? Então o palpite do quadro é
+  // mantido e não pode ser ajustado.
+  const quadroLocked = (slot: Slot): boolean =>
+    quadroPredictedMatchup(slot, predTeams, matches[slot]) && !!quadro[slot];
+
+  const editable = (slot: Slot): boolean =>
+    phaseOf(slot) !== 'R16' && !quadroLocked(slot) && isOpen(slot);
+
   const setPick = (slot: Slot, patch: Partial<Pick>) => {
     setLive((prev) => {
       const cur = prev[slot] ?? quadroDefault(slot) ?? { home_score: 0, away_score: 0, winner: null };
@@ -200,10 +208,11 @@ function LiveEditor({ state, refresh }: { state: any; refresh: () => void }) {
   return (
     <>
       <div className="msg info">
-        ⚡ Aqui cada jogo trava <b>no seu próprio horário</b>. Enquanto o jogo não começou, você pode
-        ajustar o placar — mesmo que seu quadro tenha quebrado nas fases anteriores. Sem ajuste,
-        vale o palpite do seu quadro. Os bônus (semifinalistas, finalistas, 3º e campeão) continuam
-        valendo pelo quadro fixo.
+        ⚡ A <b>segunda chance</b> de quem quebrou o chaveamento: das <b>quartas em diante</b>, se o
+        confronto real for diferente do que você previu no quadro, você pode dar um palpite novo
+        naquele jogo — até o horário dele. Quem previu o confronto certo mantém o palpite do
+        quadro (não muda). Nas oitavas vale sempre o quadro. Os bônus continuam valendo pelo
+        quadro fixo.
       </div>
       {!anyDefined && <div className="msg info">⏳ Nenhum confronto definido ainda.</div>}
       {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
@@ -219,41 +228,42 @@ function LiveEditor({ state, refresh }: { state: any; refresh: () => void }) {
             </div>
             {slots.map((slot) => {
               const m = matches[slot]!;
-              const open = isOpen(slot);
-              const hasLive = !!live[slot];
-              const shown = live[slot] ?? quadroDefault(slot);
+              const canEdit = editable(slot);
+              const hasLive = !!live[slot] && phaseOf(slot) !== 'R16' && !quadroLocked(slot);
+              const shown = (hasLive ? live[slot] : null) ?? quadroDefault(slot);
               const tie = shown && shown.home_score === shown.away_score;
               const started = m.status !== 'SCHEDULED';
+              const statusLabel = started
+                ? (m.status === 'LIVE' ? '🔴 em andamento' : `encerrado ${m.home_score}×${m.away_score}`)
+                : phaseOf(slot) === 'R16' ? '🔒 vale o quadro'
+                : quadroLocked(slot) ? '🔒 você previu este confronto — palpite do quadro mantido'
+                : !isOpen(slot) ? '🔒 travado'
+                : hasLive ? '⚡ seu palpite novo'
+                : '✍️ confronto diferente do seu quadro — dê seu palpite!';
               return (
                 <div className="pick-card" key={slot}>
                   <div className="match-head">
                     <span>{SLOT_LABEL[slot]}{m.kickoff_label ? ` · ${m.kickoff_label}` : ''}</span>
-                    <span>
-                      {started
-                        ? (m.status === 'LIVE' ? '🔴 em andamento' : `encerrado ${m.home_score}×${m.away_score}`)
-                        : !open ? '🔒 travado'
-                        : hasLive ? '⚡ ajustado'
-                        : shown ? 'usando o quadro' : 'sem palpite'}
-                    </span>
+                    <span>{statusLabel}</span>
                   </div>
                   <div className="pick-row">
                     <TeamLabel team={{ name: m.home_name!, crest: m.home_crest }} side="home" />
                     <input
                       className="goal" type="number" min={0} max={30} inputMode="numeric"
-                      disabled={!open}
+                      disabled={!canEdit}
                       value={shown?.home_score ?? ''}
                       onChange={(e) => setPick(slot, { home_score: Math.max(0, parseInt(e.target.value || '0', 10) || 0) })}
                     />
                     <span>×</span>
                     <input
                       className="goal" type="number" min={0} max={30} inputMode="numeric"
-                      disabled={!open}
+                      disabled={!canEdit}
                       value={shown?.away_score ?? ''}
                       onChange={(e) => setPick(slot, { away_score: Math.max(0, parseInt(e.target.value || '0', 10) || 0) })}
                     />
                     <TeamLabel team={{ name: m.away_name!, crest: m.away_crest }} side="away" />
                   </div>
-                  {open && tie && (
+                  {canEdit && tie && (
                     <div className="tie-picker">
                       Empate — quem passa nos pênaltis?
                       <br />
@@ -265,9 +275,9 @@ function LiveEditor({ state, refresh }: { state: any; refresh: () => void }) {
                       </button>
                     </div>
                   )}
-                  {open && hasLive && (
+                  {canEdit && hasLive && (
                     <div style={{ textAlign: 'center', marginTop: 8 }}>
-                      <button className="btn small secondary" onClick={() => revert(slot)}>↩ Voltar ao palpite do quadro</button>
+                      <button className="btn small secondary" onClick={() => revert(slot)}>↩ Apagar meu palpite novo</button>
                     </div>
                   )}
                 </div>

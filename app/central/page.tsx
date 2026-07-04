@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, clearAdminToken, getAdminToken, saveAdminToken } from '@/components/api';
-import { useBolao } from '@/components/useBolao';
+import { useBolaoCtx } from '@/components/BolaoProvider';
 import { DEFAULT_SCORING, PHASE_LABEL, Phase, phaseOf, ScoringConfig, Slot, SLOTS } from '@/lib/types';
 
 type Tab = 'pontuacao' | 'resultados' | 'participantes' | 'sync';
@@ -156,7 +156,7 @@ const SLOT_LABEL_ADMIN: Record<Slot, string> = {
 };
 
 function ResultsTab() {
-  const { state, refresh } = useBolao(120_000);
+  const { state, refresh } = useBolaoCtx();
   const [edit, setEdit] = useState<Record<string, any>>({});
   const { msg, ok, err } = useMsg();
 

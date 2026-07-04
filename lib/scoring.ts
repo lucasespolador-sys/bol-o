@@ -272,9 +272,27 @@ export interface ParticipantScore {
 }
 
 /**
- * Total do participante. Em cada jogo vale UM palpite (sem contagem dupla):
- * o ajuste "jogo a jogo" se existir; senão, o do quadro fixo (nas oitavas
- * sempre; das quartas em diante só se o confronto previsto aconteceu).
+ * O quadro previu exatamente o confronto que aconteceu neste jogo?
+ * (independente da ordem mandante/visitante)
+ */
+export function quadroPredictedMatchup(
+  slot: Slot,
+  predTeams: Record<Slot, SlotTeams>,
+  match: Match | undefined,
+): boolean {
+  if (!match?.home_name || !match?.away_name) return false;
+  const ph = predTeams[slot]?.home?.name;
+  const pa = predTeams[slot]?.away?.name;
+  if (!ph || !pa) return false;
+  return (ph === match.home_name && pa === match.away_name)
+    || (ph === match.away_name && pa === match.home_name);
+}
+
+/**
+ * Total do participante. Em cada jogo vale UM palpite (sem contagem dupla).
+ * Oitavas: sempre o quadro fixo. Das quartas em diante: se o quadro previu o
+ * confronto, vale o palpite do quadro; se NÃO previu, vale o ajuste
+ * "jogo a jogo" (a segunda chance de quem quebrou o chaveamento).
  * Os bônus de chaveamento vêm sempre do quadro fixo.
  */
 export function scoreParticipant(
@@ -289,7 +307,9 @@ export function scoreParticipant(
 
   for (const slot of SLOTS) {
     const live = livePicks[slot];
-    const s = live
+    const liveAllowed = phaseOf(slot) !== 'R16'
+      && !(quadroPredictedMatchup(slot, predTeams, matches[slot]) && picks[slot]);
+    const s = live && liveAllowed
       ? scoreSlotLive(slot, live, matches[slot], cfg)
       : scoreSlot(slot, picks[slot], predTeams[slot], matches[slot], cfg);
     slots[slot] = s;
