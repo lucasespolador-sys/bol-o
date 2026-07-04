@@ -17,31 +17,62 @@ export default function RankingPage() {
   if (!state) return null;
 
   const liveCount = Object.values(state.matches).filter((m) => m?.status === 'LIVE').length;
+  const finishedCount = Object.values(state.matches).filter((m) => m?.status === 'FINISHED').length;
   const meId = state.me?.id;
   const s = state.scoring;
 
+  const myIndex = meId ? state.leaderboard.findIndex((p) => p.id === meId) : -1;
+  const me = myIndex >= 0 ? state.leaderboard[myIndex] : null;
+  const leader = state.leaderboard[0];
+  const gap = me && leader ? leader.total - me.total : 0;
+  const medalFor = (i: number) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅');
+
   return (
     <>
-      <h1>🏆 Classificação</h1>
-      <p className="subtitle">
-        {liveCount > 0 && <span className="badge live">● {liveCount} jogo{liveCount > 1 ? 's' : ''} ao vivo</span>}{' '}
-        Atualiza sozinha a cada minuto.
-        {state.lastSync && <> Resultados sincronizados às {fmtDate(state.lastSync)}.</>}
-      </p>
+      <div className="hero">
+        <div className="hero-top">Copa do Mundo · EUA 🇺🇸 México 🇲🇽 Canadá 🇨🇦</div>
+        <h1>Bolão da Copa 2026 🏆</h1>
+        <p>Acompanhe os jogos, faça seus palpites e dispute com a família!</p>
+        <div className="chips">
+          <span className="stat-chip">👥 <b>{state.leaderboard.length}</b> participante{state.leaderboard.length === 1 ? '' : 's'}</span>
+          <span className="stat-chip">⚽ <b>{finishedCount}/16</b> jogos encerrados</span>
+          {liveCount > 0
+            ? <span className="stat-chip">🔴 <b>{liveCount}</b> ao vivo agora</span>
+            : <span className="stat-chip">🔄 atualização <b>automática</b></span>}
+        </div>
+      </div>
 
       {!state.locked && (
-        <div className="msg info">
-          📝 Palpites abertos{state.lockAt ? <> até <b>{fmtDate(state.lockAt)}</b></> : null}!{' '}
-          <Link href="/palpites">Preencha o seu quadro aqui</Link>. A pontuação começa a contar quando o mata-mata começar.
+        <Link href="/palpites" className="cta-banner">
+          ⚽ Faça seus palpites e mostre que entende de futebol!
+          <small>{state.lockAt ? `O quadro fecha em ${fmtDate(state.lockAt)} — depois dá para ajustar jogo a jogo` : 'Quadro aberto!'}</small>
+        </Link>
+      )}
+
+      {me && me.hasPicks && (
+        <div className="mypos">
+          <span className="medal">{medalFor(myIndex)}</span>
+          <div>
+            <div className="label">Sua posição</div>
+            <div className="pos">{myIndex + 1}º</div>
+          </div>
+          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+            <div className="label">Pontos</div>
+            <div className="pts"><b style={{ color: 'var(--gold)', fontSize: '1.3rem' }}>{me.total}</b></div>
+            <div className="pts" style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>
+              {myIndex === 0 ? 'você é o líder! 👑' : `${gap} atrás do líder`}
+            </div>
+          </div>
         </div>
       )}
 
+      <h2>🏆 Classificação</h2>
       {state.leaderboard.length === 0 ? (
         <div className="card">
           Ninguém entrou ainda. Seja o primeiro: <Link href="/palpites">cadastre-se e faça seus palpites</Link>!
         </div>
       ) : (
-        <div className="card" style={{ overflowX: 'auto' }}>
+        <div className="card" style={{ overflowX: 'auto', padding: '6px 12px' }}>
           <table className="rank-table">
             <thead>
               <tr>
@@ -53,25 +84,32 @@ export default function RankingPage() {
               </tr>
             </thead>
             <tbody>
-              {state.leaderboard.map((p, i) => (
-                <tr key={p.id} className={p.id === meId ? 'rank-row-me' : ''}>
-                  <td className="rank-pos">{i === 0 && p.total > 0 ? '🥇' : i === 1 && p.total > 0 ? '🥈' : i === 2 && p.total > 0 ? '🥉' : i + 1}</td>
-                  <td>
-                    {p.name}
-                    {!p.hasPicks && <span className="chip" style={{ marginLeft: 6 }}>sem palpites</span>}
-                    {p.exactCount > 0 && <span className="chip hit-exact" style={{ marginLeft: 6 }}>🎯 {p.exactCount}</span>}
-                  </td>
-                  <td className="num">{p.matchPoints}</td>
-                  <td className="num">{p.bonusPoints}</td>
-                  <td className="num rank-total">{p.total}</td>
-                </tr>
-              ))}
+              {state.leaderboard.map((p, i) => {
+                const podium = p.total > 0 && i < 3 ? `podium-${i + 1}` : '';
+                return (
+                  <tr key={p.id} className={`${podium} ${p.id === meId ? 'rank-row-me' : ''}`}>
+                    <td className="rank-pos">{p.total > 0 && i < 3 ? medalFor(i) : `${i + 1}º`}</td>
+                    <td>
+                      {p.name}
+                      {!p.hasPicks && <span className="chip" style={{ marginLeft: 6 }}>sem palpites</span>}
+                      {p.exactCount > 0 && <span className="chip hit-exact" style={{ marginLeft: 6 }}>🎯 {p.exactCount}</span>}
+                    </td>
+                    <td className="num">{p.matchPoints}</td>
+                    <td className="num">{p.bonusPoints}</td>
+                    <td className="num rank-total">{p.total}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+      <p className="subtitle" style={{ marginTop: 6 }}>
+        Atualiza sozinha a cada minuto.
+        {state.lastSync && <> Resultados sincronizados às {fmtDate(state.lastSync)}.</>}
+      </p>
 
-      <h2>Como pontua</h2>
+      <h2>📖 Regras do bolão</h2>
       <div className="grid-2">
         <div className="card">
           <b>Em cada jogo</b>

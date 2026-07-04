@@ -11,7 +11,7 @@ export default function TeamLabel({
   side: 'home' | 'away';
 }) {
   const flag = team?.crest
-    ? <img src={team.crest} alt="" loading="lazy" />
+    ? <img src={team.crest} alt="" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
     : null;
   const name = team?.name
     ? <span className="name">{teamNamePt(team.name)}</span>

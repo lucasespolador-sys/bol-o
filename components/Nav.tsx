@@ -23,7 +23,10 @@ export default function Nav() {
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <Link href="/" className="nav-title">⚽ Bolão da Copa 2026</Link>
+        <Link href="/" className="nav-title">
+          <span className="brand-top">⚽ Bolão da</span>
+          <span className="brand-main">COPA 2026 🏆</span>
+        </Link>
         {LINKS.map((l) => (
           <Link key={l.href} href={l.href} className={`nav-link ${pathname === l.href ? 'active' : ''}`}>
             {l.label}
