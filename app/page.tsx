@@ -103,8 +103,11 @@ export default function RankingPage() {
             </tbody>
           </table>
           <p className="subtitle" style={{ marginTop: 10 }}>
-            Das quartas em diante, o placar só conta se você tinha previsto aquele confronto no seu
-            quadro. Nas oitavas conta para todo mundo. Cravar o placar da final vale {s.exact * s.multipliers.F} pontos!
+            ⚡ <b>Palpite jogo a jogo:</b> cada jogo trava no seu próprio horário. Você pode ajustar
+            o placar de qualquer jogo que ainda não começou — mesmo que seu quadro tenha quebrado
+            antes. Sem ajuste, vale o palpite do quadro (das quartas em diante, só se você tinha
+            previsto aquele confronto). Os bônus valem sempre pelo quadro fixo. Cravar o placar da
+            final vale {s.exact * s.multipliers.F} pontos!
           </p>
         </div>
       </div>

@@ -81,20 +81,28 @@ export default function JogosPage() {
                 {state.board && (
                   <div className="pick-chips">
                     {state.board.map((b) => {
-                      const p = b.picks[slot];
+                      const livePick = b.livePicks?.[slot];
+                      const p = livePick ?? b.picks[slot];
                       if (!p) return <span className="chip" key={b.id}>{b.name}: —</span>;
-                      const t = b.predTeams[slot];
                       const sc = b.slots[slot];
+                      const isLive = sc?.source === 'live';
+                      const t = b.predTeams[slot];
                       const kindClass = sc && sc.points > 0 ? KIND_CLASS[sc.kind] ?? '' : '';
-                      const showTeams = phase !== 'R16' && t.home?.name && t.away?.name
+                      // Ajuste jogo a jogo é feito sobre o confronto real; o do
+                      // quadro pode ter sido feito sobre outro confronto previsto
+                      const showTeams = !isLive && phase !== 'R16' && t.home?.name && t.away?.name
                         ? ` (${teamNamePt(t.home.name)} × ${teamNamePt(t.away.name)})`
                         : '';
+                      const winnerName = p.winner && p.home_score === p.away_score
+                        ? (isLive
+                          ? (p.winner === 'HOME' ? m?.home_name : m?.away_name)
+                          : t[p.winner === 'HOME' ? 'home' : 'away']?.name)
+                        : null;
                       return (
                         <span className={`chip ${kindClass}`} key={b.id}>
                           {b.name}: <b>{p.home_score}×{p.away_score}</b>{showTeams}
-                          {p.winner && p.home_score === p.away_score && t[p.winner === 'HOME' ? 'home' : 'away']?.name
-                            ? ` (${teamNamePt(t[p.winner === 'HOME' ? 'home' : 'away']!.name)} passa)`
-                            : ''}
+                          {winnerName ? ` (${teamNamePt(winnerName)} passa)` : ''}
+                          {isLive && ' ⚡'}
                           {sc && sc.points > 0 && <> {KIND_ICON[sc.kind]} +{sc.points}</>}
                           {sc && sc.kind === 'not_counted' && ' (confronto diferente)'}
                         </span>

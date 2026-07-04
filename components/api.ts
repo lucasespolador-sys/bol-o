@@ -18,6 +18,7 @@ export interface BoardEntry {
   id: string;
   name: string;
   picks: Picks;
+  livePicks: Picks;
   slots: Record<string, SlotScore>;
   predTeams: Record<Slot, SlotTeams>;
 }
@@ -30,7 +31,7 @@ export interface BolaoState {
   lastSync: string | null;
   leaderboard: LeaderboardEntry[];
   board: BoardEntry[] | null;
-  me: { id: string; name: string | null; picks: Picks } | null;
+  me: { id: string; name: string | null; picks: Picks; livePicks: Picks } | null;
 }
 
 const TOKEN_KEY = 'bolao_token';

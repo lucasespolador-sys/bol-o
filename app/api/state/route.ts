@@ -15,10 +15,11 @@ export async function GET(req: NextRequest) {
     await maybeSync();
 
     const sql = getSql();
-    const [matchRows, participantRows, predictionRows] = await Promise.all([
+    const [matchRows, participantRows, predictionRows, livePickRows] = await Promise.all([
       sql`SELECT * FROM matches`,
       sql`SELECT id, name FROM participants ORDER BY name`,
       sql`SELECT participant_id, slot, home_score, away_score, winner FROM predictions`,
+      sql`SELECT participant_id, slot, home_score, away_score, winner FROM match_picks`,
     ]);
 
     const matches: Partial<Record<Slot, Match>> = {};
@@ -46,12 +47,18 @@ export async function GET(req: NextRequest) {
       p[r.slot as Slot] = { home_score: r.home_score, away_score: r.away_score, winner: r.winner };
       picksByParticipant.set(r.participant_id, p);
     }
+    const livePicksByParticipant = new Map<string, Picks>();
+    for (const r of livePickRows) {
+      const p = livePicksByParticipant.get(r.participant_id) ?? {};
+      p[r.slot as Slot] = { home_score: r.home_score, away_score: r.away_score, winner: r.winner };
+      livePicksByParticipant.set(r.participant_id, p);
+    }
 
     const meId = verifyToken(req.headers.get('authorization'));
 
     const leaderboard = participantRows.map((p) => {
       const picks = picksByParticipant.get(p.id) ?? {};
-      const score = scoreParticipant(picks, matches, scoring);
+      const score = scoreParticipant(picks, matches, scoring, livePicksByParticipant.get(p.id) ?? {});
       const exactCount = Object.values(score.slots).filter((s) => s.kind === 'exact').length;
       return {
         id: p.id,
@@ -69,8 +76,9 @@ export async function GET(req: NextRequest) {
     const board = locked
       ? participantRows.map((p) => {
         const picks = picksByParticipant.get(p.id) ?? {};
-        const score = scoreParticipant(picks, matches, scoring);
-        return { id: p.id, name: p.name, picks, slots: score.slots, predTeams: score.predTeams };
+        const livePicks = livePicksByParticipant.get(p.id) ?? {};
+        const score = scoreParticipant(picks, matches, scoring, livePicks);
+        return { id: p.id, name: p.name, picks, livePicks, slots: score.slots, predTeams: score.predTeams };
       })
       : null;
 
@@ -79,6 +87,7 @@ export async function GET(req: NextRequest) {
         id: meId,
         name: participantRows.find((p) => p.id === meId)?.name ?? null,
         picks: picksByParticipant.get(meId) ?? {},
+        livePicks: livePicksByParticipant.get(meId) ?? {},
       }
       : null;
 

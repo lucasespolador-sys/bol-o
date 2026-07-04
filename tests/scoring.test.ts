@@ -185,7 +185,51 @@ const R16: [Slot, string, string][] = [
 }
 
 // ---------------------------------------------------------------------------
-// 6. Jogo não terminado não pontua
+// 6. Palpite jogo a jogo: substitui o do quadro naquele jogo, sem dupla
+//    contagem, e vale mesmo quando o quadro não previu o confronto
+// ---------------------------------------------------------------------------
+{
+  const matches: Partial<Record<Slot, Match>> = {};
+  for (const [slot, h, a] of R16) matches[slot] = match(slot, h, a, 0, 1); // visitante vence
+  // Real: QF_1 = França × Marrocos 2x0
+  matches.QF_1 = match('QF_1', 'France', 'Morocco', 2, 0);
+
+  // Quadro previu Paraguai e Canadá (errou as duas oitavas) → QF_1 previsto
+  // era Paraguai × Canadá: não contaria nada nas quartas
+  const picks: Picks = {
+    R16_1: { home_score: 1, away_score: 0, winner: null }, // Paraguai (errado)
+    R16_2: { home_score: 1, away_score: 0, winner: null }, // Canadá (errado)
+    QF_1: { home_score: 2, away_score: 0, winner: null },
+  };
+
+  // Sem ajuste: quartas não contam (confronto diferente)
+  let r = scoreParticipant(picks, matches, cfg);
+  assert.equal(r.slots.QF_1.points, 0);
+  assert.equal(r.slots.QF_1.kind, 'not_counted');
+
+  // Com ajuste jogo a jogo no confronto real: cravou → 10 × 2, sem dupla contagem
+  r = scoreParticipant(picks, matches, cfg, { QF_1: { home_score: 2, away_score: 0, winner: null } });
+  assert.equal(r.slots.QF_1.points, 20, 'ajuste jogo a jogo vale no confronto real');
+  assert.equal(r.slots.QF_1.kind, 'exact');
+  assert.equal(r.slots.QF_1.source, 'live');
+
+  // O ajuste substitui o palpite do quadro naquele jogo (não soma os dois)
+  const noLive = scoreParticipant(picks, matches, cfg).matchPoints;
+  const withLive = r.matchPoints;
+  assert.equal(withLive, noLive + 20, 'ajuste substitui, não duplica');
+
+  // Ajuste errado por cima de quadro certo: vale o ajuste
+  const picksCertos: Picks = {
+    R16_1: { home_score: 0, away_score: 1, winner: null }, // França
+    R16_2: { home_score: 0, away_score: 1, winner: null }, // Marrocos
+    QF_1: { home_score: 2, away_score: 0, winner: null },  // cravaria
+  };
+  const r2 = scoreParticipant(picksCertos, matches, cfg, { QF_1: { home_score: 0, away_score: 1, winner: null } });
+  assert.equal(r2.slots.QF_1.points, 0, 'ajuste substitui o quadro mesmo quando piora');
+}
+
+// ---------------------------------------------------------------------------
+// 7. Jogo não terminado não pontua
 // ---------------------------------------------------------------------------
 {
   const m = match('R16_1', 'Paraguay', 'France', 1, 1, { status: 'LIVE' });

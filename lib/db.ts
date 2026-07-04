@@ -115,6 +115,16 @@ export function ensureSchema(): Promise<void> {
         key text PRIMARY KEY,
         value jsonb NOT NULL
       )`;
+      // Palpites "jogo a jogo": ajustáveis até o horário de cada jogo
+      await sql`CREATE TABLE IF NOT EXISTS match_picks (
+        participant_id uuid NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
+        slot text NOT NULL,
+        home_score int NOT NULL,
+        away_score int NOT NULL,
+        winner text,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (participant_id, slot)
+      )`;
     })().catch((e) => {
       schemaReady = null; // permite tentar de novo na próxima requisição
       throw e;

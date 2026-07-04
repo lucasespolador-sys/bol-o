@@ -84,6 +84,8 @@ export interface SlotScore {
   base: number;
   multiplier: number;
   points: number;
+  /** de onde veio o palpite usado: quadro fixo ou ajuste jogo a jogo */
+  source?: 'quadro' | 'live';
 }
 
 /**
@@ -149,7 +151,45 @@ export function scoreSlot(
     base = cfg.winner; kind = 'winner';
   }
 
-  return { slot, kind, base, multiplier, points: base * multiplier };
+  return { slot, kind, base, multiplier, points: base * multiplier, source: 'quadro' };
+}
+
+/**
+ * Pontua um palpite "jogo a jogo": feito sobre o confronto real, na mesma
+ * orientação (mandante/visitante) do jogo — comparação direta, vale para
+ * qualquer fase.
+ */
+export function scoreSlotLive(
+  slot: Slot,
+  pick: Pick,
+  match: Match | undefined,
+  cfg: ScoringConfig,
+): SlotScore {
+  const phase: Phase = phaseOf(slot);
+  const multiplier = cfg.multipliers[phase] ?? 1;
+  if (!match || match.status !== 'FINISHED' || match.home_score == null || match.away_score == null
+    || !match.home_name || !match.away_name) {
+    return { slot, kind: 'pending', base: 0, multiplier, points: 0, source: 'live' };
+  }
+
+  const side = pickAdvancer(pick);
+  const predAdvancer = side === 'HOME' ? match.home_name : side === 'AWAY' ? match.away_name : null;
+  const actualAdvancer = matchAdvancer(match);
+
+  let base = 0;
+  let kind: HitKind = 'none';
+  if (pick.home_score === match.home_score && pick.away_score === match.away_score) {
+    base = cfg.exact; kind = 'exact';
+  } else if (
+    predAdvancer && predAdvancer === actualAdvancer
+    && (pick.home_score - pick.away_score) === (match.home_score - match.away_score)
+  ) {
+    base = cfg.diff; kind = 'diff';
+  } else if (predAdvancer && predAdvancer === actualAdvancer) {
+    base = cfg.winner; kind = 'winner';
+  }
+
+  return { slot, kind, base, multiplier, points: base * multiplier, source: 'live' };
 }
 
 // ---------------------------------------------------------------------------
@@ -231,17 +271,27 @@ export interface ParticipantScore {
   predTeams: Record<Slot, SlotTeams>;
 }
 
+/**
+ * Total do participante. Em cada jogo vale UM palpite (sem contagem dupla):
+ * o ajuste "jogo a jogo" se existir; senão, o do quadro fixo (nas oitavas
+ * sempre; das quartas em diante só se o confronto previsto aconteceu).
+ * Os bônus de chaveamento vêm sempre do quadro fixo.
+ */
 export function scoreParticipant(
   picks: Picks,
   matches: Partial<Record<Slot, Match>>,
   cfg: ScoringConfig,
+  livePicks: Picks = {},
 ): ParticipantScore {
   const predTeams = derivePredictedTeams(picks, matches);
   const slots: Record<string, SlotScore> = {};
   let matchPoints = 0;
 
   for (const slot of SLOTS) {
-    const s = scoreSlot(slot, picks[slot], predTeams[slot], matches[slot], cfg);
+    const live = livePicks[slot];
+    const s = live
+      ? scoreSlotLive(slot, live, matches[slot], cfg)
+      : scoreSlot(slot, picks[slot], predTeams[slot], matches[slot], cfg);
     slots[slot] = s;
     matchPoints += s.points;
   }

@@ -73,23 +73,12 @@ function LoginBox({ onLogin }: { onLogin: () => void }) {
 export default function PalpitesPage() {
   const { state, error, loading, refresh } = useBolao();
   const [logged, setLogged] = useState(false);
-  const [picks, setPicks] = useState<Picks>({});
-  const [loadedPicks, setLoadedPicks] = useState(false);
-  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<'jogo' | 'quadro' | null>(null);
 
   useEffect(() => { setLogged(!!getToken()); }, []);
-
-  // Carrega os palpites salvos quando o estado chegar
   useEffect(() => {
-    if (state?.me && !loadedPicks) {
-      setPicks(state.me.picks ?? {});
-      setLoadedPicks(true);
-    }
-  }, [state, loadedPicks]);
-
-  const matches = state?.matches ?? {};
-  const predTeams = useMemo(() => derivePredictedTeams(picks, matches), [picks, matches]);
+    if (state && tab === null) setTab(state.locked ? 'jogo' : 'quadro');
+  }, [state, tab]);
 
   if (loading) return <p className="subtitle">Carregando…</p>;
   if (error) return <div className="msg err">{error}</div>;
@@ -99,10 +88,223 @@ export default function PalpitesPage() {
     return (
       <>
         <h1>📝 Meus Palpites</h1>
-        <LoginBox onLogin={() => { setLogged(true); setLoadedPicks(false); refresh(); }} />
+        <LoginBox onLogin={() => { setLogged(true); refresh(); }} />
       </>
     );
   }
+
+  return (
+    <>
+      <h1>📝 Meus Palpites</h1>
+      <p className="subtitle">
+        Olá, <b>{state.me?.name}</b>!{' '}
+        <a href="#" onClick={(e) => { e.preventDefault(); clearSession(); setLogged(false); }}>Sair</a>
+      </p>
+      <div className="tabs">
+        <button className={tab === 'jogo' ? 'active' : ''} onClick={() => setTab('jogo')}>⚡ Jogo a jogo</button>
+        <button className={tab === 'quadro' ? 'active' : ''} onClick={() => setTab('quadro')}>🔒 Meu quadro</button>
+      </div>
+      {tab === 'jogo' ? <LiveEditor state={state} refresh={refresh} /> : <BracketEditor state={state} refresh={refresh} />}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Palpites jogo a jogo: cada jogo trava no SEU horário
+// ---------------------------------------------------------------------------
+
+function LiveEditor({ state, refresh }: { state: any; refresh: () => void }) {
+  const [live, setLive] = useState<Picks>({});
+  const [edited, setEdited] = useState<Set<Slot>>(new Set());
+  const [loaded, setLoaded] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (state?.me && !loaded) {
+      setLive(state.me.livePicks ?? {});
+      setLoaded(true);
+    }
+  }, [state, loaded]);
+
+  const matches = state.matches ?? {};
+  const quadro: Picks = state.me?.picks ?? {};
+  const predTeams = useMemo(() => derivePredictedTeams(quadro, matches), [quadro, matches]);
+
+  // Palpite herdado do quadro, na orientação do jogo real (se previu o confronto)
+  const quadroDefault = (slot: Slot): Pick | null => {
+    const p = quadro[slot];
+    const m = matches[slot];
+    if (!p || !m?.home_name || !m?.away_name) return null;
+    if (phaseOf(slot) === 'R16') return p;
+    const ph = predTeams[slot]?.home?.name;
+    const pa = predTeams[slot]?.away?.name;
+    if (ph === m.home_name && pa === m.away_name) return p;
+    if (ph === m.away_name && pa === m.home_name) {
+      return { home_score: p.away_score, away_score: p.home_score, winner: p.winner === 'HOME' ? 'AWAY' : p.winner === 'AWAY' ? 'HOME' : null };
+    }
+    return null; // confronto diferente do previsto
+  };
+
+  const isOpen = (slot: Slot): boolean => {
+    const m = matches[slot];
+    return !!m && m.status === 'SCHEDULED' && !!m.home_name && !!m.away_name
+      && !!m.kickoff && new Date(m.kickoff).getTime() > Date.now();
+  };
+
+  const setPick = (slot: Slot, patch: Partial<Pick>) => {
+    setLive((prev) => {
+      const cur = prev[slot] ?? quadroDefault(slot) ?? { home_score: 0, away_score: 0, winner: null };
+      const next: Pick = { ...cur, ...patch };
+      if (next.home_score !== next.away_score) next.winner = null;
+      return { ...prev, [slot]: next };
+    });
+    setEdited((prev) => new Set(prev).add(slot));
+  };
+
+  const revert = async (slot: Slot) => {
+    try {
+      await api('/api/live', { method: 'PUT', body: JSON.stringify({ picks: { [slot]: null } }) });
+      setLive((prev) => { const n = { ...prev }; delete n[slot]; return n; });
+      setEdited((prev) => { const n = new Set(prev); n.delete(slot); return n; });
+      setMsg({ kind: 'ok', text: `${SLOT_LABEL[slot]}: voltou a valer o palpite do quadro.` });
+      refresh();
+    } catch (e: any) {
+      setMsg({ kind: 'err', text: e.message });
+    }
+  };
+
+  const save = async () => {
+    if (edited.size === 0) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const payload: Record<string, Pick> = {};
+      for (const slot of edited) if (live[slot]) payload[slot] = live[slot]!;
+      const r = await api<{ saved: number; locked: string[] }>('/api/live', {
+        method: 'PUT', body: JSON.stringify({ picks: payload }),
+      });
+      const lockedNote = r.locked?.length ? ` (${r.locked.length} jogo(s) já tinham começado e não mudaram)` : '';
+      setMsg({ kind: 'ok', text: `Ajustes salvos: ${r.saved} jogo(s)${lockedNote}. 🍀` });
+      setEdited(new Set());
+      refresh();
+    } catch (e: any) {
+      setMsg({ kind: 'err', text: e.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const anyDefined = SLOTS.some((s) => matches[s]?.home_name && matches[s]?.away_name);
+
+  return (
+    <>
+      <div className="msg info">
+        ⚡ Aqui cada jogo trava <b>no seu próprio horário</b>. Enquanto o jogo não começou, você pode
+        ajustar o placar — mesmo que seu quadro tenha quebrado nas fases anteriores. Sem ajuste,
+        vale o palpite do seu quadro. Os bônus (semifinalistas, finalistas, 3º e campeão) continuam
+        valendo pelo quadro fixo.
+      </div>
+      {!anyDefined && <div className="msg info">⏳ Nenhum confronto definido ainda.</div>}
+      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
+
+      {(['R16', 'QF', 'SF', 'TP', 'F'] as Phase[]).map((phase) => {
+        const slots = SLOTS.filter((s) => phaseOf(s) === phase && matches[s]?.home_name && matches[s]?.away_name);
+        if (!slots.length) return null;
+        return (
+          <section key={phase}>
+            <div className="phase-title">
+              <h2>{PHASE_LABEL[phase]}</h2>
+              <span className="mult">pontos ×{state.scoring.multipliers[phase]}</span>
+            </div>
+            {slots.map((slot) => {
+              const m = matches[slot]!;
+              const open = isOpen(slot);
+              const hasLive = !!live[slot];
+              const shown = live[slot] ?? quadroDefault(slot);
+              const tie = shown && shown.home_score === shown.away_score;
+              const started = m.status !== 'SCHEDULED';
+              return (
+                <div className="pick-card" key={slot}>
+                  <div className="match-head">
+                    <span>{SLOT_LABEL[slot]}{m.kickoff_label ? ` · ${m.kickoff_label}` : ''}</span>
+                    <span>
+                      {started
+                        ? (m.status === 'LIVE' ? '🔴 em andamento' : `encerrado ${m.home_score}×${m.away_score}`)
+                        : !open ? '🔒 travado'
+                        : hasLive ? '⚡ ajustado'
+                        : shown ? 'usando o quadro' : 'sem palpite'}
+                    </span>
+                  </div>
+                  <div className="pick-row">
+                    <TeamLabel team={{ name: m.home_name!, crest: m.home_crest }} side="home" />
+                    <input
+                      className="goal" type="number" min={0} max={30} inputMode="numeric"
+                      disabled={!open}
+                      value={shown?.home_score ?? ''}
+                      onChange={(e) => setPick(slot, { home_score: Math.max(0, parseInt(e.target.value || '0', 10) || 0) })}
+                    />
+                    <span>×</span>
+                    <input
+                      className="goal" type="number" min={0} max={30} inputMode="numeric"
+                      disabled={!open}
+                      value={shown?.away_score ?? ''}
+                      onChange={(e) => setPick(slot, { away_score: Math.max(0, parseInt(e.target.value || '0', 10) || 0) })}
+                    />
+                    <TeamLabel team={{ name: m.away_name!, crest: m.away_crest }} side="away" />
+                  </div>
+                  {open && tie && (
+                    <div className="tie-picker">
+                      Empate — quem passa nos pênaltis?
+                      <br />
+                      <button className={shown?.winner === 'HOME' ? 'selected' : ''} onClick={() => setPick(slot, { winner: 'HOME' })}>
+                        {teamNamePt(m.home_name!)}
+                      </button>
+                      <button className={shown?.winner === 'AWAY' ? 'selected' : ''} onClick={() => setPick(slot, { winner: 'AWAY' })}>
+                        {teamNamePt(m.away_name!)}
+                      </button>
+                    </div>
+                  )}
+                  {open && hasLive && (
+                    <div style={{ textAlign: 'center', marginTop: 8 }}>
+                      <button className="btn small secondary" onClick={() => revert(slot)}>↩ Voltar ao palpite do quadro</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+        );
+      })}
+
+      <div className="save-bar">
+        <button className="btn" onClick={save} disabled={saving || edited.size === 0}>
+          {saving ? 'Salvando…' : `💾 Salvar ajustes${edited.size ? ` (${edited.size})` : ''}`}
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Quadro fixo (fecha no primeiro jogo das oitavas)
+// ---------------------------------------------------------------------------
+
+function BracketEditor({ state, refresh }: { state: any; refresh: () => void }) {
+  const [picks, setPicks] = useState<Picks>({});
+  const [loadedPicks, setLoadedPicks] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (state?.me && !loadedPicks) {
+      setPicks(state.me.picks ?? {});
+      setLoadedPicks(true);
+    }
+  }, [state, loadedPicks]);
+
+  const matches = state?.matches ?? {};
+  const predTeams = useMemo(() => derivePredictedTeams(picks, matches), [picks, matches]);
 
   const setPick = (slot: Slot, patch: Partial<Pick>) => {
     setPicks((prev) => {
@@ -140,19 +342,18 @@ export default function PalpitesPage() {
 
   return (
     <>
-      <h1>📝 Meus Palpites</h1>
-      <p className="subtitle">
-        Olá, <b>{state.me?.name}</b>! Preencha o placar de cada jogo. Em caso de empate, escolha quem
-        passa nos pênaltis — o vencedor avança automaticamente no seu quadro.{' '}
-        <a href="#" onClick={(e) => { e.preventDefault(); clearSession(); setLogged(false); setPicks({}); }}>Sair</a>
-      </p>
-
-      {state.locked && (
-        <div className="msg info">🔒 Os palpites estão fechados — o mata-mata começou! Seu quadro está registrado abaixo.</div>
+      {state.locked ? (
+        <div className="msg info">
+          🔒 O quadro fechou quando o mata-mata começou — ele continua valendo os bônus de
+          chaveamento e como palpite padrão. Para ajustar os próximos jogos, use a aba <b>⚡ Jogo a jogo</b>.
+        </div>
+      ) : (
+        <div className="msg info">
+          Preencha o placar de cada jogo — em caso de empate, escolha quem passa nos pênaltis.
+          O quadro fecha no primeiro jogo das oitavas e vale os bônus de chaveamento.
+        </div>
       )}
-      {!r16Ready && (
-        <div className="msg info">⏳ Os confrontos das oitavas ainda não foram definidos. Volte em breve!</div>
-      )}
+      {!r16Ready && <div className="msg info">⏳ Os confrontos das oitavas ainda não foram definidos. Volte em breve!</div>}
 
       {(['R16', 'QF', 'SF', 'TP', 'F'] as Phase[]).map((phase) => (
         <section key={phase}>
