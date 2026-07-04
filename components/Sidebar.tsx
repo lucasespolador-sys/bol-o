@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getMyName } from './api';
+import Trophy from './Trophy';
 
 const MENU = [
   { href: '/', icon: '🏠', label: 'Início' },
@@ -23,7 +24,7 @@ export default function Sidebar({ open, onNavigate }: { open: boolean; onNavigat
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <Link href="/" className="side-brand" onClick={onNavigate}>
-        <span className="brand-trophy">🏆</span>
+        <Trophy size={40} />
         <span>
           <span className="brand-top">Bolão da<br />Copa do Mundo</span>
           <span className="brand-main">2026 <span className="stars">★★★★</span></span>

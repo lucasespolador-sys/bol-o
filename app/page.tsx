@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useBolaoCtx } from '@/components/BolaoProvider';
 import Bracket from '@/components/Bracket';
+import Trophy from '@/components/Trophy';
 import { PHASE_LABEL, Phase, phaseOf, SLOTS } from '@/lib/types';
 
 function fmtDate(iso: string | null): string {
@@ -41,7 +42,7 @@ export default function HomePage() {
               {liveCount > 0 && <span className="stat-chip live-chip">🔴 <b>{liveCount}</b><small>ao vivo</small></span>}
             </div>
           </div>
-          <div className="hero-trophy">🏆</div>
+          <div className="hero-trophy"><Trophy size={120} /></div>
         </div>
       </div>
 
