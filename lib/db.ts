@@ -21,7 +21,30 @@ export function dbUrl(): string {
   if (!/^postgres(ql)?:\/\//.test(url)) {
     throw new Error('POSTGRES_URL inválida: ela deve começar com postgresql://');
   }
-  return url;
+  return normalizePassword(url);
+}
+
+/**
+ * Aceita senha colada "crua" na URL (com / + $ @ etc.): se a URL não parseia,
+ * codifica a senha automaticamente.
+ */
+function normalizePassword(url: string): string {
+  try {
+    new URL(url);
+    return url;
+  } catch {
+    // postgresql://usuario:senha@resto — a senha vai até o ÚLTIMO @
+    const m = url.match(/^(postgres(?:ql)?:\/\/)([^:@/]+):(.*)@([^@]+)$/);
+    if (m) {
+      const [, proto, user, pass, rest] = m;
+      const fixed = `${proto}${user}:${encodeURIComponent(pass)}@${rest}`;
+      try {
+        new URL(fixed);
+        return fixed;
+      } catch { /* segue com a original */ }
+    }
+    return url;
+  }
 }
 
 let pool: Pool | null = null;
