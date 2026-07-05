@@ -2,16 +2,15 @@
 
 import { useMemo } from 'react';
 import { useBolaoCtx } from './BolaoProvider';
+import Trophy from './Trophy';
 import { derivePredictedTeams, scoreParticipant, SlotScore } from '@/lib/scoring';
 import { teamCode, teamNamePt } from '@/lib/teamNames';
 import { Match, Picks, Slot } from '@/lib/types';
 
-const PAIRS: { round: string; cols: Slot[][] }[] = [
-  { round: 'Oitavas de final', cols: [['R16_1', 'R16_2'], ['R16_3', 'R16_4'], ['R16_5', 'R16_6'], ['R16_7', 'R16_8']] },
-  { round: 'Quartas de final', cols: [['QF_1', 'QF_2'], ['QF_3', 'QF_4']] },
-  { round: 'Semifinais', cols: [['SF_1', 'SF_2']] },
-  { round: 'Final', cols: [['F', 'TP']] },
-];
+// Chaveamento em pôster espelhado: os dois lados convergem para a final,
+// com a taça no centro (como nos quadros oficiais da Copa)
+const LEFT_R16: [Slot, Slot][] = [['R16_1', 'R16_2'], ['R16_3', 'R16_4']];
+const RIGHT_R16: [Slot, Slot][] = [['R16_5', 'R16_6'], ['R16_7', 'R16_8']];
 
 interface TeamRowProps {
   name: string | null;
@@ -140,19 +139,49 @@ export default function Bracket({ participantId }: { participantId?: string | nu
 
   return (
     <div className="bracket-scroll">
-      <div className="bracket">
-        {PAIRS.map((round) => (
-          <div className="bk-round" key={round.round}>
-            <div className="bk-round-title">{round.round}</div>
-            <div className="bk-round-body">
-              {round.cols.map((pair, i) => (
-                <div className={`bk-pair ${round.round === 'Final' ? 'final-col' : ''}`} key={i}>
-                  {pair.map((slot) => renderCard(slot))}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+      <div className="bracket mirror">
+        {/* lado esquerdo */}
+        <div className="bk-col">
+          <div className="bk-col-title">Oitavas</div>
+          {LEFT_R16.map((pair, i) => (
+            <div className="bk-pair" key={i}>{pair.map((slot) => renderCard(slot))}</div>
+          ))}
+        </div>
+        <div className="bk-col">
+          <div className="bk-col-title">Quartas</div>
+          <div className="bk-pair solo">{renderCard('QF_1')}</div>
+          <div className="bk-pair solo">{renderCard('QF_2')}</div>
+        </div>
+        <div className="bk-col">
+          <div className="bk-col-title">Semifinal</div>
+          <div className="bk-pair solo">{renderCard('SF_1')}</div>
+        </div>
+
+        {/* centro: taça + final + 3º lugar */}
+        <div className="bk-col bk-center">
+          <Trophy size={84} />
+          <div className="bk-col-title gold">🏆 Final</div>
+          {renderCard('F')}
+          <div className="bk-col-title">3º lugar</div>
+          {renderCard('TP')}
+        </div>
+
+        {/* lado direito (espelhado) */}
+        <div className="bk-col right">
+          <div className="bk-col-title">Semifinal</div>
+          <div className="bk-pair solo">{renderCard('SF_2')}</div>
+        </div>
+        <div className="bk-col right">
+          <div className="bk-col-title">Quartas</div>
+          <div className="bk-pair solo">{renderCard('QF_3')}</div>
+          <div className="bk-pair solo">{renderCard('QF_4')}</div>
+        </div>
+        <div className="bk-col right">
+          <div className="bk-col-title">Oitavas</div>
+          {RIGHT_R16.map((pair, i) => (
+            <div className="bk-pair" key={i}>{pair.map((slot) => renderCard(slot))}</div>
+          ))}
+        </div>
       </div>
       <div className="bk-legend">
         <span>✅ Palpite certo</span>

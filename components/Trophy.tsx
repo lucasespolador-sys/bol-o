@@ -46,6 +46,12 @@ export default function Trophy({ size = 110 }: { size?: number }) {
       {/* coluna */}
       <path d="M40 78 C38 92 36 100 31 108 L69 108 C64 100 62 92 60 78 Z" fill={`url(#${au})`} />
       <path d="M42 80 C41 92 39 99 36 105 L44 105 C46 97 46 88 46 80 Z" fill={`url(#${shine})`} opacity="0.5" />
+      {/* vincos torcidos do corpo, como na taça real */}
+      <path d="M46 56 C42 68 44 88 38 106" stroke="#8a6410" strokeWidth="1.4" fill="none" opacity="0.4" />
+      <path d="M55 56 C58 70 54 90 60 106" stroke="#8a6410" strokeWidth="1.4" fill="none" opacity="0.4" />
+      <path d="M50 55 C48 72 52 88 47 106" stroke="#8a6410" strokeWidth="1" fill="none" opacity="0.3" />
+      <path d="M36 46 C33 56 34 66 41 74" stroke="#8a6410" strokeWidth="1.2" fill="none" opacity="0.35" />
+      <path d="M64 46 C67 56 66 66 59 74" stroke="#8a6410" strokeWidth="1.2" fill="none" opacity="0.35" />
 
       {/* base com faixa de malaquita */}
       <rect x="22" y="108" width="56" height="9" rx="4.5" fill={`url(#${au})`} />
