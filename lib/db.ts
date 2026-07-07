@@ -125,6 +125,26 @@ export function ensureSchema(): Promise<void> {
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (participant_id, slot)
       )`;
+
+      // Segurança (Supabase): o schema public é exposto via PostgREST com a
+      // chave anon. RLS ligado SEM políticas = nenhum acesso por essa API.
+      // Este app fala direto com o Postgres como dono das tabelas, então
+      // não é afetado (donos passam pelo RLS por padrão).
+      await sql`ALTER TABLE participants ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE matches ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE predictions ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE settings ENABLE ROW LEVEL SECURITY`;
+      await sql`ALTER TABLE match_picks ENABLE ROW LEVEL SECURITY`;
+      // Reforço: revoga qualquer permissão dos papéis do PostgREST
+      // (só existem no Supabase; em outros Postgres não faz nada)
+      await sql`DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+          REVOKE ALL ON participants, matches, predictions, settings, match_picks FROM anon;
+        END IF;
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+          REVOKE ALL ON participants, matches, predictions, settings, match_picks FROM authenticated;
+        END IF;
+      END $$`;
     })().catch((e) => {
       schemaReady = null; // permite tentar de novo na próxima requisição
       throw e;
