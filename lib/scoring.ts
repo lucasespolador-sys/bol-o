@@ -226,12 +226,32 @@ export function scoreBonus(
     return s;
   };
 
+  // Vencedor de um jogo já encerrado (para deduzir classificados quando a
+  // API ainda não preencheu os times da fase seguinte)
+  const finishedWinner = (slot: Slot): string | null => {
+    const m = matches[slot];
+    if (!m || m.status !== 'FINISHED') return null;
+    return matchAdvancer(m);
+  };
+
   const actualSemi = names(['SF_1', 'SF_2'], 'actual');
+  if (actualSemi.size < 4) {
+    for (const q of ['QF_1', 'QF_2', 'QF_3', 'QF_4'] as Slot[]) {
+      const w = finishedWinner(q);
+      if (w) actualSemi.add(w);
+    }
+  }
   const predSemi = names(['SF_1', 'SF_2'], 'pred');
   let semifinalists = 0;
   for (const n of predSemi) if (actualSemi.has(n)) semifinalists++;
 
   const actualFinal = names(['F'], 'actual');
+  if (actualFinal.size < 2) {
+    for (const sf of ['SF_1', 'SF_2'] as Slot[]) {
+      const w = finishedWinner(sf);
+      if (w) actualFinal.add(w);
+    }
+  }
   const predFinal = names(['F'], 'pred');
   let finalists = 0;
   for (const n of predFinal) if (actualFinal.has(n)) finalists++;

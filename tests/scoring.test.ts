@@ -246,4 +246,45 @@ const R16: [Slot, string, string][] = [
   assert.equal(s.kind, 'pending');
 }
 
+// ---------------------------------------------------------------------------
+// 8. Bônus entram assim que a fase anterior termina, mesmo que a API ainda
+//    não tenha preenchido os times do jogo seguinte
+// ---------------------------------------------------------------------------
+{
+  const matches: Partial<Record<Slot, Match>> = {};
+  for (const [slot, h, a] of R16) matches[slot] = match(slot, h, a, 0, 1); // visitante vence
+  matches.QF_1 = match('QF_1', 'France', 'Morocco', 2, 0);
+  matches.QF_2 = match('QF_2', 'Spain', 'Belgium', 1, 0);
+  matches.QF_3 = match('QF_3', 'Norway', 'England', 0, 2);
+  matches.QF_4 = match('QF_4', 'Egypt', 'Colombia', 0, 1);
+  // Semis encerradas, mas jogo da final SEM times definidos (API atrasada)
+  matches.SF_1 = match('SF_1', 'France', 'Spain', 1, 0);
+  matches.SF_2 = match('SF_2', 'England', 'Colombia', 3, 1);
+
+  const picks: Picks = {
+    R16_1: { home_score: 0, away_score: 1, winner: null },
+    R16_2: { home_score: 0, away_score: 1, winner: null },
+    R16_3: { home_score: 0, away_score: 1, winner: null },
+    R16_4: { home_score: 0, away_score: 1, winner: null },
+    R16_5: { home_score: 0, away_score: 1, winner: null },
+    R16_6: { home_score: 0, away_score: 1, winner: null },
+    R16_7: { home_score: 0, away_score: 1, winner: null },
+    R16_8: { home_score: 0, away_score: 1, winner: null },
+    QF_1: { home_score: 2, away_score: 0, winner: null },  // França passa
+    QF_3: { home_score: 0, away_score: 2, winner: null },  // Inglaterra passa
+    SF_1: { home_score: 1, away_score: 0, winner: null },  // França na final
+    SF_2: { home_score: 3, away_score: 1, winner: null },  // Inglaterra na final
+  };
+  const r = scoreParticipant(picks, matches, cfg);
+  assert.equal(r.bonus.finalists, 2, 'finalistas deduzidos dos vencedores das semis');
+  assert.equal(r.bonus.points >= 2 * 12, true);
+
+  // E semifinalistas deduzidos das quartas quando as semis não têm times
+  const m2 = { ...matches };
+  delete m2.SF_1;
+  delete m2.SF_2;
+  const r2 = scoreParticipant(picks, m2, cfg);
+  assert.equal(r2.bonus.semifinalists, 4, 'semifinalistas deduzidos dos vencedores das quartas');
+}
+
 console.log('✅ Todos os testes de pontuação passaram!');
