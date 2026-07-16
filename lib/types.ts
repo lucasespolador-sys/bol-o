@@ -56,6 +56,8 @@ export interface ScoringConfig {
     finalist: number;     // cada finalista certo
     third: number;        // acertar o 3o colocado
     champion: number;     // acertar o campeão
+    /** cada time certo na disputa de 3º lugar (0 = desligado, padrão) */
+    thirdMatch?: number;
   };
 }
 
@@ -64,7 +66,7 @@ export const DEFAULT_SCORING: ScoringConfig = {
   diff: 6,
   winner: 3,
   multipliers: { R16: 1, QF: 2, SF: 3, TP: 2, F: 4 },
-  bonus: { semifinalist: 8, finalist: 12, third: 8, champion: 25 },
+  bonus: { semifinalist: 8, finalist: 12, third: 8, champion: 25, thirdMatch: 0 },
 };
 
 export const PHASE_LABEL: Record<Phase, string> = {

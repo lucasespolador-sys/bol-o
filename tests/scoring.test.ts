@@ -283,8 +283,52 @@ const R16: [Slot, string, string][] = [
   const m2 = { ...matches };
   delete m2.SF_1;
   delete m2.SF_2;
+  // (o quadro deste participante só previu 2 semifinalistas — QF_2 e QF_4 em branco)
   const r2 = scoreParticipant(picks, m2, cfg);
-  assert.equal(r2.bonus.semifinalists, 4, 'semifinalistas deduzidos dos vencedores das quartas');
+  assert.equal(r2.bonus.semifinalists, 2, 'semifinalistas deduzidos dos vencedores das quartas');
+}
+
+// ---------------------------------------------------------------------------
+// 9. Bônus opcional "time na disputa de 3º": desligado por padrão; quando
+//    ativo, paga por time certo (deduzido dos perdedores das semis)
+// ---------------------------------------------------------------------------
+{
+  const matches: Partial<Record<Slot, Match>> = {};
+  for (const [slot, h, a] of R16) matches[slot] = match(slot, h, a, 0, 1);
+  matches.QF_1 = match('QF_1', 'France', 'Morocco', 2, 0);
+  matches.QF_2 = match('QF_2', 'Spain', 'Belgium', 1, 0);
+  matches.QF_3 = match('QF_3', 'Norway', 'England', 0, 2);
+  matches.QF_4 = match('QF_4', 'Egypt', 'Colombia', 0, 1);
+  matches.SF_1 = match('SF_1', 'France', 'Spain', 0, 2);   // França perde → disputa de 3º
+  matches.SF_2 = match('SF_2', 'England', 'Colombia', 2, 1); // Colômbia perde → disputa de 3º
+
+  // Quadro previu França e Colômbia perdendo as semis → TP previsto = França × Colômbia
+  const picks: Picks = {
+    R16_1: { home_score: 0, away_score: 1, winner: null },
+    R16_2: { home_score: 0, away_score: 1, winner: null },
+    R16_3: { home_score: 0, away_score: 1, winner: null },
+    R16_4: { home_score: 0, away_score: 1, winner: null },
+    R16_5: { home_score: 0, away_score: 1, winner: null },
+    R16_6: { home_score: 0, away_score: 1, winner: null },
+    R16_7: { home_score: 0, away_score: 1, winner: null },
+    R16_8: { home_score: 0, away_score: 1, winner: null },
+    QF_1: { home_score: 2, away_score: 0, winner: null },
+    QF_2: { home_score: 1, away_score: 0, winner: null },
+    QF_3: { home_score: 0, away_score: 2, winner: null },
+    QF_4: { home_score: 0, away_score: 1, winner: null },
+    SF_1: { home_score: 0, away_score: 1, winner: null }, // Espanha passa, França pro 3º
+    SF_2: { home_score: 1, away_score: 0, winner: null }, // Inglaterra passa, Colômbia pro 3º
+  };
+
+  // Desligado (padrão): não muda nada
+  const off = scoreParticipant(picks, matches, cfg);
+  assert.equal(off.bonus.thirdMatch, 0, 'desligado por padrão');
+
+  // Ligado com 8 pontos: França e Colômbia certas na disputa de 3º = +16
+  const cfgOn = { ...cfg, bonus: { ...cfg.bonus, thirdMatch: 8 } };
+  const on = scoreParticipant(picks, matches, cfgOn);
+  assert.equal(on.bonus.thirdMatch, 2, 'dois times certos na disputa de 3º');
+  assert.equal(on.bonus.points, off.bonus.points + 16, 'bônus soma 8 por time certo');
 }
 
 console.log('✅ Todos os testes de pontuação passaram!');

@@ -52,6 +52,9 @@ export default function RightRail() {
         <div className="rail-line"><span>3º lugar ×{s.multipliers.TP} · Final ×{s.multipliers.F}</span></div>
         <div className="rail-line"><span>🥈 Semifinalista {s.bonus.semifinalist} · 🎖️ Finalista {s.bonus.finalist}</span></div>
         <div className="rail-line"><span>🥉 3º lugar {s.bonus.third} · 🏆 Campeão {s.bonus.champion}</span></div>
+        {(s.bonus.thirdMatch ?? 0) > 0 && (
+          <div className="rail-line"><span>🎗️ Time na disputa de 3º {s.bonus.thirdMatch} cada</span></div>
+        )}
         <Link href="/classificacao" className="rail-btn">Ver regras completas</Link>
       </div>
     </aside>

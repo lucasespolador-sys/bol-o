@@ -199,6 +199,7 @@ export function scoreSlotLive(
 export interface BonusScore {
   semifinalists: number; // quantos semifinalistas acertou (0-4)
   finalists: number;     // quantos finalistas acertou (0-2)
+  thirdMatch: number;    // times certos na disputa de 3º (0-2, bônus opcional)
   third: boolean;
   champion: boolean;
   points: number;
@@ -256,6 +257,25 @@ export function scoreBonus(
   let finalists = 0;
   for (const n of predFinal) if (actualFinal.has(n)) finalists++;
 
+  // Bônus opcional: cada time certo na disputa de 3º lugar
+  // (perdedores das semis, se a API ainda não preencheu o jogo)
+  let thirdMatch = 0;
+  if ((cfg.bonus.thirdMatch ?? 0) > 0) {
+    const actualTP = names(['TP'], 'actual');
+    if (actualTP.size < 2) {
+      for (const sf of ['SF_1', 'SF_2'] as Slot[]) {
+        const m = matches[sf];
+        const w = finishedWinner(sf);
+        if (m && w) {
+          const loser = w === m.home_name ? m.away_name : m.home_name;
+          if (loser) actualTP.add(loser);
+        }
+      }
+    }
+    const predTP = names(['TP'], 'pred');
+    for (const n of predTP) if (actualTP.has(n)) thirdMatch++;
+  }
+
   const predAdvName = (slot: Slot): string | null => {
     const side = pickAdvancer(picks[slot]);
     if (!side) return null;
@@ -273,10 +293,11 @@ export function scoreBonus(
   const points =
     semifinalists * cfg.bonus.semifinalist +
     finalists * cfg.bonus.finalist +
+    thirdMatch * (cfg.bonus.thirdMatch ?? 0) +
     (third ? cfg.bonus.third : 0) +
     (champion ? cfg.bonus.champion : 0);
 
-  return { semifinalists, finalists, third, champion, points };
+  return { semifinalists, finalists, thirdMatch, third, champion, points };
 }
 
 // ---------------------------------------------------------------------------

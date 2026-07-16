@@ -96,6 +96,9 @@ export default function ClassificacaoPage() {
               <tr><td>🎖️ Cada finalista certo</td><td>{s.bonus.finalist}</td></tr>
               <tr><td>🥉 Acertar o 3º colocado</td><td>{s.bonus.third}</td></tr>
               <tr><td>🏆 Acertar o campeão</td><td>{s.bonus.champion}</td></tr>
+              {(s.bonus.thirdMatch ?? 0) > 0 && (
+                <tr><td>🎗️ Cada time certo na disputa de 3º</td><td>{s.bonus.thirdMatch}</td></tr>
+              )}
             </tbody>
           </table>
           <p className="subtitle" style={{ marginTop: 10 }}>

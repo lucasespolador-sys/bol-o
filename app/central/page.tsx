@@ -131,7 +131,17 @@ function ScoringTab() {
         <div><label>🎖️ Finalista certo</label><input type="number" value={scoring.bonus.finalist} onChange={(e) => setScoring({ ...scoring, bonus: { ...scoring.bonus, finalist: num(e.target.value) } })} /></div>
         <div><label>🥉 3º colocado</label><input type="number" value={scoring.bonus.third} onChange={(e) => setScoring({ ...scoring, bonus: { ...scoring.bonus, third: num(e.target.value) } })} /></div>
         <div><label>🏆 Campeão</label><input type="number" value={scoring.bonus.champion} onChange={(e) => setScoring({ ...scoring, bonus: { ...scoring.bonus, champion: num(e.target.value) } })} /></div>
+        <div>
+          <label>Time na disputa de 3º (0 = desligado)</label>
+          <input type="number" value={scoring.bonus.thirdMatch ?? 0} onChange={(e) => setScoring({ ...scoring, bonus: { ...scoring.bonus, thirdMatch: num(e.target.value) } })} />
+        </div>
       </div>
+      <p className="subtitle">
+        ℹ️ "Time na disputa de 3º" é um bônus extra opcional: paga por cada time que o participante
+        colocou (no quadro original) na disputa de 3º lugar e que realmente foi para ela. Vem
+        desligado (0) porque esses times já pagam o bônus de semifinalista — ative só se combinar
+        com todo mundo.
+      </p>
       <h2>Fechamento dos palpites</h2>
       <p className="subtitle">Se vazio, fecha automaticamente no horário do primeiro jogo das oitavas.</p>
       <div className="form-row">

@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
             finalist: num(s.bonus?.finalist, d.bonus.finalist),
             third: num(s.bonus?.third, d.bonus.third),
             champion: num(s.bonus?.champion, d.bonus.champion),
+            thirdMatch: num(s.bonus?.thirdMatch, 0),
           },
         };
         await setSetting('scoring', scoring);
